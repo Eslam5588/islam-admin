@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -10,8 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style> 
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .tab-content { display: none; } 
-        .tab-content.active { display: block; } 
+        .tab-content { display: none; } .tab-content.active { display: block; } 
         .chat-bubble-admin { background-color: #d1fae5; border-radius: 10px 10px 0 10px; padding: 8px; margin-bottom: 8px; text-align: right; width: 80%; margin-right: auto; }
         .chat-bubble-client { background-color: #f3f4f6; border-radius: 10px 10px 10px 0; padding: 8px; margin-bottom: 8px; text-align: right; width: 80%; }
     </style>
@@ -21,7 +21,7 @@
     <div class="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
         <h1 class="text-center font-black text-amber-500 py-3 text-xl"><i class="fa-solid fa-store"></i> لوحة الإدارة</h1>
         <div class="flex overflow-x-auto text-sm font-bold">
-            <button onclick="switchAdminTab('tabSearch')" id="btn-tabSearch" class="flex-1 py-3 border-b-4 border-amber-500 text-amber-500 whitespace-nowrap px-4"><i class="fa-solid fa-search"></i> الطوارئ</button>
+            <button onclick="switchAdminTab('tabSearch')" id="btn-tabSearch" class="flex-1 py-3 border-b-4 border-amber-500 text-amber-500 whitespace-nowrap px-4"><i class="fa-solid fa-bolt"></i> الطوارئ</button>
             <button onclick="switchAdminTab('tabOrders')" id="btn-tabOrders" class="flex-1 py-3 border-b-4 border-transparent hover:text-amber-500 whitespace-nowrap px-4"><i class="fa-solid fa-bell"></i> الطلبات</button>
             <button onclick="switchAdminTab('tabCustomers')" id="btn-tabCustomers" class="flex-1 py-3 border-b-4 border-transparent hover:text-amber-500 whitespace-nowrap px-4"><i class="fa-solid fa-users"></i> العملاء</button>
             <button onclick="switchAdminTab('tabData')" id="btn-tabData" class="flex-1 py-3 border-b-4 border-transparent hover:text-amber-500 whitespace-nowrap px-4"><i class="fa-solid fa-file-excel"></i> الإكسيل</button>
@@ -32,7 +32,7 @@
 
         <!-- ========================================== -->
         <!-- 1. دليل الأسعار + كاشير الطوارئ -->
-        ========================================= -->
+        <!-- ========================================== -->
         <div id="tabSearch" class="tab-content active">
             <div class="bg-white p-4 rounded-xl shadow border-t-4 border-emerald-500 mb-6">
                 <div class="flex gap-2 mb-2"><input type="text" id="adminSearchInput" oninput="debouncedSearch()" placeholder="اكتب الصنف أو الباركود..." class="w-full p-3 border-2 border-emerald-500 rounded-lg text-lg font-bold bg-gray-50 shadow-inner"><button onclick="startAdminScanner()" class="bg-emerald-500 text-white px-5 rounded-lg shadow font-bold hover:bg-emerald-600"><i class="fa-solid fa-barcode text-2xl"></i></button></div>
@@ -60,8 +60,7 @@
 
         <!-- ========================================== -->
         <!-- 2. الطلبات (شيلنا تصدير الإكسيل) -->
-        <!-- =
-    
+        <!-- ========================================== -->
         <div id="tabOrders" class="tab-content">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold"><i class="fa-solid fa-list-check text-amber-600"></i> طلبات العملاء والطوارئ</h2>
@@ -115,7 +114,7 @@
 
         // -------------------------
         // حفظ فاتورة الطوارئ في الطلبات مباشرة
-            // -------------------------
+        // -------------------------
         window.saveAdminInvoiceToOrders = async function() {
             if(window.adminCart.length === 0) return alert("الفاتورة فارغة!");
             let total = 0; window.adminCart.forEach(i => total += i.price * i.qty);
@@ -246,7 +245,7 @@
 
         // -------------------------
         // 3. رفع الإكسيل
-       // -------------------------
+        // -------------------------
         window.processProductsExcel = async function() { const file = document.getElementById('productsFile').files[0], stat = document.getElementById('productsStatus'); if(!file) return; stat.innerText = "جاري الرفع..."; const reader = new FileReader(); reader.onload = async (e) => { const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}).Sheets[XLSX.read(e.target.result, {type: 'array'}).SheetNames[0]]); const q = await getDocs(collection(db, "Products")); let b = writeBatch(db); let c = 0; for(let d of q.docs) { b.delete(d.ref); c++; if(c===400){await b.commit(); b=writeBatch(db); c=0;} } if(c>0) await b.commit(); b = writeBatch(db); c = 0; for(let i=0; i<data.length; i++) { let it = data[i]; if(it.Item_Name && it.Price) { let bCode = String(it.Barcode || i).trim(); let gPrice = Number(it.Gomla_Price); if(isNaN(gPrice) || gPrice === 0) gPrice = Number(it.Price); b.set(doc(db, "Products", bCode), { Barcode: bCode, Item_Name: String(it.Item_Name), Price: Number(it.Price), Wholesale_Price: gPrice, Quantity: Number(it.Quantity)||0 }); c++; if(c===400 || i===data.length-1){await b.commit(); b=writeBatch(db); c=0;} } } stat.innerText = "تم الرفع بنجاح!"; stat.className = "mt-2 text-sm text-green-600"; loadAdminProducts(); }; reader.readAsArrayBuffer(file); }
         window.processBonusExcel = async function() { const file = document.getElementById('bonusFile').files[0], stat = document.getElementById('bonusStatus'); if (!file) return; stat.innerText = "جاري الحساب والتوزيع..."; const reader = new FileReader(); reader.onload = async function(e) { const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}).Sheets[XLSX.read(e.target.result, {type: 'array'}).SheetNames[0]]); let count = 0; for(let row of data) { if(!row.QR_Code) continue; const qrRef = doc(db, "ScannedQRs", String(row.QR_Code)), qrSnap = await getDoc(qrRef); if(qrSnap.exists() && qrSnap.data().status === 'pending') { let originalInv = row.Original_Invoice || String(row.QR_Code); let excelDate = new Date(row.Date); if(isNaN(excelDate)) excelDate = new Date(); excelDate.setDate(excelDate.getDate() + 30); let unlockDateStr = excelDate.toISOString().split('T')[0]; await updateDoc(qrRef, { status: 'approved', bonusAmount: Number(row.Bonus)||0, originalInvoice: originalInv, unlockDate: unlockDateStr }); const userSnap = await getDoc(doc(db, "Users", qrSnap.data().phone)); if(userSnap.exists()) { let addedAttempts = userSnap.data().type === 'wholesale' ? 10 : 5; await updateDoc(doc(db, "Users", qrSnap.data().phone), { attempts: increment(addedAttempts) }); } count++; } } stat.innerText = `تم تأكيد ${count} فاتورة وإضافة المحاولات.`; stat.className = "mt-2 text-sm text-green-600"; }; reader.readAsArrayBuffer(file); }
 
@@ -296,4 +295,3 @@
     </script>
 </body>
 </html>
-```
