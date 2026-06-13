@@ -33,7 +33,7 @@
     <div class="p-4 max-w-6xl mx-auto">
 
         <!-- ========================================== -->
-        <!-- 1. دليل الأسعار + كاشير الطوارئ -->
+        <!-- 1. كاشير الطوارئ والأسعار -->
         <!-- ========================================== -->
         <div id="tabSearch" class="tab-content active">
             <div class="bg-white p-4 rounded-xl shadow border-t-4 border-emerald-500 mb-6">
@@ -71,7 +71,7 @@
         <div id="pcBarcodesModal" class="fixed inset-0 bg-black bg-opacity-80 z-[1002] hidden flex items-center justify-center p-4"><div class="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 flex flex-col"><div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-barcode text-blue-500"></i> باركودات الفاتورة</h2><button onclick="closePcBarcodesModal()" class="text-red-500 font-black text-2xl">&times;</button></div><textarea id="pcBarcodesArea" class="w-full h-48 p-3 border-2 border-blue-500 rounded bg-gray-50 font-bold text-lg text-left" dir="ltr" readonly></textarea><button onclick="copyFromTextarea()" class="mt-4 bg-blue-600 text-white font-bold py-3 rounded-lg shadow">نسخ الكل</button></div></div>
 
         <!-- ========================================== -->
-        <!-- 2. الطلبات -->
+        <!-- 2. الطلبات والشات -->
         <!-- ========================================== -->
         <div id="tabOrders" class="tab-content">
             <div class="flex justify-between items-center mb-4">
@@ -83,7 +83,7 @@
         <div id="orderChatModal" class="fixed inset-0 bg-black bg-opacity-80 z-[1003] hidden flex items-center justify-center p-4"><div class="bg-white w-full max-w-md rounded-xl shadow-2xl p-4 flex flex-col h-[80vh]"><div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-comments text-blue-500"></i> مناقشة الفاتورة</h2><button onclick="closeOrderChat()" class="text-red-500 font-black text-2xl">&times;</button></div><div id="chatMessagesArea" class="flex-1 overflow-y-auto bg-gray-50 p-2 rounded border mb-2 flex flex-col"></div><div class="flex gap-2"><input type="text" id="chatInput" placeholder="اكتب رسالتك للعميل..." class="flex-1 p-2 border rounded font-bold"><button onclick="sendOrderChatMessage()" class="bg-blue-600 text-white px-4 rounded font-bold"><i class="fa-solid fa-paper-plane"></i></button></div></div></div>
 
         <!-- ========================================== -->
-        <!-- 3. شاشة سجل الفواتير (زرار الرفض) -->
+        <!-- 3. الفواتير المسجلة -->
         <!-- ========================================== -->
         <div id="tabInvoices" class="tab-content">
             <div class="bg-white p-4 rounded-xl shadow border-t-4 border-blue-500">
@@ -107,18 +107,18 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 5. الإكسيل -->
+        <!-- 5. رفع الإكسيل -->
         <!-- ========================================== -->
         <div id="tabData" class="tab-content">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-white p-6 rounded-xl shadow border-r-4 border-blue-500"><h2 class="font-bold mb-2">رفع شيت الأصناف (Excel)</h2><input type="file" id="productsFile" accept=".xlsx, .xls, .csv" class="mb-4 block w-full text-sm"><button onclick="processProductsExcel()" class="bg-blue-600 text-white px-4 py-2 rounded font-bold w-full">رفع الأصناف</button><p id="productsStatus" class="mt-2 text-sm text-center font-bold"></p></div>
-                <div class="bg-white p-6 rounded-xl shadow border-r-4 border-green-500"><h2 class="font-bold mb-2">تأكيد الفواتير (شيت البونص)</h2><p class="text-xs text-gray-500 mb-4">تأكد أن الأعمدة هي: QR_Code, Bonus, Date, Original_Invoice</p><input type="file" id="bonusFile" accept=".xlsx, .xls, .csv" class="mb-4 block w-full text-sm"><button onclick="processBonusExcel()" class="bg-green-600 text-white px-4 py-2 rounded font-bold w-full">تأكيد وتوزيع البونص</button><p id="bonusStatus" class="mt-2 text-sm text-center font-bold"></p></div>
+                <div class="bg-white p-6 rounded-xl shadow border-r-4 border-green-500"><h2 class="font-bold mb-2">تأكيد الفواتير (شيت البونص)</h2><p class="text-xs text-gray-500 mb-4">تأكد أن الأعمدة هي: QR_Code, Bonus, Date, Original_Invoice</p><input type="file" id="bonusFile" accept=".xlsx, .xls, .csv" class="mb-4 block w-full text-sm"><button onclick="processBonusExcel()" class="bg-green-600 text-white px-4 py-2 rounded font-bold w-full">تأكيد وتوزيع البونص</button><p id="bonusStatus" class="mt-2 text-sm text-right font-bold bg-gray-50 p-2 rounded mt-2"></p></div>
             </div>
         </div>
 
     </div>
 
-    <!-- أكواد Firebase -->
+    <!-- أكواد Firebase والعمليات -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, onSnapshot, getDocs, doc, writeBatch, query, where, updateDoc, getDoc, increment, deleteDoc, arrayUnion, addDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -128,6 +128,8 @@
         const db = window.db = getFirestore(app); 
 
         enableIndexedDbPersistence(db).catch((err) => { console.log("Offline error"); });
+
+        // دالة الصوت
         window.playBeep = function() { try { const AudioContext = window.AudioContext || window.webkitAudioContext; const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gainNode = ctx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime); gainNode.gain.setValueAtTime(0.1, ctx.currentTime); osc.connect(gainNode); gainNode.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.1); } catch(e) {} }
 
         window.saveAdminInvoiceToOrders = async function() {
@@ -138,8 +140,7 @@
         // --- سجل الطلبات والشات ---
         window.allActiveOrders = []; 
         onSnapshot(collection(db, "Orders"), (snapshot) => {
-            const container = document.getElementById('ordersCardsContainer'); container.innerHTML = '';
-            window.allActiveOrders = []; snapshot.forEach(d => window.allActiveOrders.push({ id: d.id, ...d.data() })); window.allActiveOrders.sort((a, b) => b.timestamp - a.timestamp);
+            const container = document.getElementById('ordersCardsContainer'); container.innerHTML = ''; window.allActiveOrders = []; snapshot.forEach(d => window.allActiveOrders.push({ id: d.id, ...d.data() })); window.allActiveOrders.sort((a, b) => b.timestamp - a.timestamp);
             if(window.allActiveOrders.length === 0) { container.innerHTML = '<p class="col-span-full text-center text-gray-500 mt-10 font-bold">لا توجد طلبات.</p>'; }
             else {
                 window.allActiveOrders.forEach(o => {
@@ -160,78 +161,35 @@
         window.currentChatOrderId = null;
         window.openOrderChat = function(orderId) { window.currentChatOrderId = orderId; document.getElementById('orderChatModal').classList.remove('hidden'); renderChatMessages(); }
         window.closeOrderChat = function() { document.getElementById('orderChatModal').classList.add('hidden'); window.currentChatOrderId = null; }
-        function renderChatMessages() {
-            if(!window.currentChatOrderId) return;
-            const order = window.allActiveOrders.find(o => o.id === window.currentChatOrderId);
-            const area = document.getElementById('chatMessagesArea'); area.innerHTML = '';
-            if(!order || !order.chat || order.chat.length === 0) { area.innerHTML = '<p class="text-center text-gray-400 font-bold mt-10">لا توجد رسائل.</p>'; return; }
-            order.chat.forEach(msg => { let cssClass = msg.sender === 'admin' ? 'chat-bubble-admin' : 'chat-bubble-client'; let senderName = msg.sender === 'admin' ? 'المحل' : 'العميل'; area.innerHTML += `<div class="${cssClass}"><span class="text-[10px] text-gray-500 block mb-1">${senderName} - ${msg.time}</span><p class="text-sm font-bold text-gray-800">${msg.text}</p></div>`; });
-            area.scrollTop = area.scrollHeight; 
-        }
-        window.sendOrderChatMessage = async function() {
-            const input = document.getElementById('chatInput'); const text = input.value.trim(); if(text === '' || !window.currentChatOrderId) return;
-            const msgObj = { sender: 'admin', text: text, time: new Date().toLocaleTimeString("ar-EG", {hour: '2-digit', minute:'2-digit'}) };
-            await updateDoc(doc(db, "Orders", window.currentChatOrderId), { chat: arrayUnion(msgObj) }); input.value = '';
-        }
+        function renderChatMessages() { if(!window.currentChatOrderId) return; const order = window.allActiveOrders.find(o => o.id === window.currentChatOrderId); const area = document.getElementById('chatMessagesArea'); area.innerHTML = ''; if(!order || !order.chat || order.chat.length === 0) { area.innerHTML = '<p class="text-center text-gray-400 font-bold mt-10">لا توجد رسائل.</p>'; return; } order.chat.forEach(msg => { let cssClass = msg.sender === 'admin' ? 'chat-bubble-admin' : 'chat-bubble-client'; let senderName = msg.sender === 'admin' ? 'المحل' : 'العميل'; area.innerHTML += `<div class="${cssClass}"><span class="text-[10px] text-gray-500 block mb-1">${senderName} - ${msg.time}</span><p class="text-sm font-bold text-gray-800">${msg.text}</p></div>`; }); area.scrollTop = area.scrollHeight; }
+        window.sendOrderChatMessage = async function() { const input = document.getElementById('chatInput'); const text = input.value.trim(); if(text === '' || !window.currentChatOrderId) return; const msgObj = { sender: 'admin', text: text, time: new Date().toLocaleTimeString("ar-EG", {hour: '2-digit', minute:'2-digit'}) }; await updateDoc(doc(db, "Orders", window.currentChatOrderId), { chat: arrayUnion(msgObj) }); input.value = ''; }
 
-        // --- سجل الفواتير (تعديل: إضافة زرار الرفض) ---
+        // --- سجل الفواتير ---
         onSnapshot(collection(db, "ScannedQRs"), (snapshot) => {
             const tbody = document.getElementById('invoicesTableBody'); tbody.innerHTML = '';
-            let qrs = []; snapshot.forEach(d => qrs.push({ id: d.id, ...d.data() }));
-            qrs.sort((a,b) => new Date(b.date) - new Date(a.date));
-            
+            let qrs = []; snapshot.forEach(d => qrs.push({ id: d.id, ...d.data() })); qrs.sort((a,b) => new Date(b.date) - new Date(a.date));
             if(qrs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500 font-bold">لا توجد فواتير مسجلة.</td></tr>'; return; }
-            
             qrs.forEach(q => {
-                let statusHtml = '';
-                if(q.status === 'pending') statusHtml = '<span class="text-amber-500 bg-amber-50 px-2 py-1 rounded">قيد المراجعة</span>';
-                else if (q.status === 'approved') statusHtml = '<span class="text-green-600 bg-green-50 px-2 py-1 rounded">مؤكدة</span>';
-                else if (q.status === 'rejected') statusHtml = '<span class="text-red-600 bg-red-50 px-2 py-1 rounded">مرفوضة</span>';
-
+                let statusHtml = ''; if(q.status === 'pending') statusHtml = '<span class="text-amber-500 bg-amber-50 px-2 py-1 rounded">قيد المراجعة</span>'; else if (q.status === 'approved') statusHtml = '<span class="text-green-600 bg-green-50 px-2 py-1 rounded">مؤكدة</span>'; else if (q.status === 'rejected') statusHtml = '<span class="text-red-600 bg-red-50 px-2 py-1 rounded">مرفوضة</span>';
                 let bAmount = q.bonusAmount ? `<span class="text-green-600 font-black">${q.bonusAmount} ج</span>` : '<span class="text-gray-300">-</span>';
-                
-                // زرار الرفض بيظهر لو الفاتورة قيد المراجعة بس
-                let actionBtn = '';
-                if(q.status === 'pending') {
-                    actionBtn = `<button onclick="rejectInvoice('${q.id}')" class="text-red-500 bg-red-50 px-3 py-1 rounded text-xs font-bold hover:bg-red-100 transition"><i class="fa-solid fa-xmark"></i> رفض</button>`;
-                }
-
-                tbody.innerHTML += `
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="p-2">
-                            <span class="font-bold text-gray-800">${q.qrCode}</span><br>
-                            <span class="text-xs text-blue-600 font-bold">${q.name}</span> <span class="text-[10px] text-gray-400">${q.date}</span>
-                        </td>
-                        <td class="p-2 text-center text-xs font-bold">${statusHtml}</td>
-                        <td class="p-2 text-center">${bAmount}</td>
-                        <td class="p-2 text-center">${actionBtn}</td>
-                    </tr>
-                `;
+                let actionBtn = q.status === 'pending' ? `<button onclick="rejectInvoice('${q.id}')" class="text-red-500 bg-red-50 px-3 py-1 rounded text-xs font-bold hover:bg-red-100 transition"><i class="fa-solid fa-xmark"></i> رفض</button>` : '';
+                tbody.innerHTML += `<tr class="border-b hover:bg-gray-50"><td class="p-2"><span class="font-bold text-gray-800">${q.qrCode}</span><br><span class="text-xs text-blue-600 font-bold">${q.name}</span> <span class="text-[10px] text-gray-400">${q.date}</span></td><td class="p-2 text-center text-xs font-bold">${statusHtml}</td><td class="p-2 text-center">${bAmount}</td><td class="p-2 text-center">${actionBtn}</td></tr>`;
             });
         });
-
-        window.rejectInvoice = async function(id) {
-            if(confirm("هل أنت متأكد من رفض هذه الفاتورة؟ (سيتم تصنيفها كوهمية للعميل)")) {
-                await updateDoc(doc(db, "ScannedQRs", id), { status: 'rejected' });
-            }
-        }
+        window.rejectInvoice = async function(id) { if(confirm("هل أنت متأكد من رفض هذه الفاتورة؟ (سيتم تصنيفها كوهمية للعميل)")) { await updateDoc(doc(db, "ScannedQRs", id), { status: 'rejected' }); } }
 
         // --- العملاء والموافقات والخصم ---
         onSnapshot(query(collection(db, "Users"), where("status", "==", "pending")), (snap) => { const div = document.getElementById('pendingUsersContainer'); div.innerHTML = ''; snap.forEach(d => { const u = d.data(); let typ = u.type==='wholesale'?'جملة':'قطاعي'; div.innerHTML += `<div class="flex justify-between items-center bg-gray-50 p-2 rounded border mb-2"><div class="text-sm"><p class="font-bold">${u.name} <span class="bg-yellow-200 text-xs px-1">${typ}</span></p></div><button onclick="approveUser('${u.phone}')" class="bg-purple-500 text-white px-3 py-1 rounded text-xs font-bold">تفعيل</button></div>`; }); });
         window.approveUser = async function(phone) { await updateDoc(doc(db, "Users", phone), { status: 'approved' }); }; 
-        
         window.loadAllCustomers = async function() {
             const tbody = document.getElementById('crmTableBody'); tbody.innerHTML = '<tr><td colspan="4" class="p-2 text-center font-bold text-gray-500">جاري التحميل...</td></tr>';
-            const usersSnap = await getDocs(query(collection(db, "Users"), where("status", "==", "approved")));
-            const qrsSnap = await getDocs(collection(db, "ScannedQRs"));
+            const usersSnap = await getDocs(query(collection(db, "Users"), where("status", "==", "approved"))); const qrsSnap = await getDocs(collection(db, "ScannedQRs"));
             let qrStats = {}; const today = new Date().toISOString().split('T')[0];
             qrsSnap.forEach(d => { let q = d.data(); if(!qrStats[q.phone]) qrStats[q.phone] = { total:0, approved:0, pendingBonus:0 }; qrStats[q.phone].total++; if(q.status === 'approved') qrStats[q.phone].approved++; if(q.bonusAmount > 0 && q.unlockDate > today) qrStats[q.phone].pendingBonus += q.bonusAmount; });
-            tbody.innerHTML = '';
-            if(usersSnap.empty) { tbody.innerHTML = '<tr><td colspan="4" class="p-2 text-center">لا يوجد عملاء.</td></tr>'; return; }
+            tbody.innerHTML = ''; if(usersSnap.empty) { tbody.innerHTML = '<tr><td colspan="4" class="p-2 text-center">لا يوجد عملاء.</td></tr>'; return; }
             usersSnap.forEach(d => { 
                 const u = d.data(); let stat = qrStats[u.phone] || {total:0, approved:0, pendingBonus:0}; let typ = u.type==='wholesale'?'جملة':'قطاعي'; 
-                let bonusHtml = `<span class="text-green-600 font-black">${u.bonus||0} ج</span>`;
-                if(stat.pendingBonus > 0) bonusHtml += `<br><span class="text-gray-400 text-xs line-through" title="في الطريق">${stat.pendingBonus} ج بالطريق</span>`;
+                let bonusHtml = `<span class="text-green-600 font-black">${u.bonus||0} ج</span>`; if(stat.pendingBonus > 0) bonusHtml += `<br><span class="text-gray-400 text-xs line-through" title="في الطريق">${stat.pendingBonus} ج بالطريق</span>`;
                 tbody.innerHTML += `<tr class="border-b"><td class="p-2 font-bold">${u.name}<br><span class="bg-gray-200 text-xs px-1 rounded">${typ}</span><br><span class="text-xs text-gray-500" dir="ltr">${u.phone}</span></td><td class="p-2 text-center text-xs font-bold text-blue-600">${stat.total} / ${stat.approved}</td><td class="p-2 text-center"><span class="font-bold text-amber-600">${u.attempts}</span> <button onclick="editUserAttempts('${u.phone}', ${u.attempts})" class="text-gray-400 hover:text-blue-500 text-xs ml-1"><i class="fa-solid fa-pen"></i></button></td><td class="p-2 text-center">${bonusHtml}</td></tr>`; 
             }); 
         }
@@ -239,35 +197,51 @@
         window.checkCustomerBalance = async function() { let phone = document.getElementById('customerPhone').value.trim(); if(phone.startsWith('0')) phone = phone.substring(1); if(!phone.startsWith('+20')) phone = '+20'+phone; const uSnap = await getDoc(doc(db, "Users", phone)); if(uSnap.exists()) { window.currentCheckPhone = phone; document.getElementById('cName').innerText = uSnap.data().name; document.getElementById('cBalance').innerText = uSnap.data().bonus || 0; document.getElementById('balanceResult').classList.remove('hidden'); } else alert("رقم غير مسجل."); }
         window.deductBalance = async function() { const amt = Number(document.getElementById('deductAmount').value), cBal = Number(document.getElementById('cBalance').innerText); if(amt <= 0 || amt > cBal) return; if(confirm(`خصم ${amt}؟`)) { await updateDoc(doc(db, "Users", window.currentCheckPhone), { deductedBonus: increment(amt), bonus: increment(-amt) }); alert("تم الخصم!"); document.getElementById('balanceResult').classList.add('hidden'); document.getElementById('deductAmount').value = ''; loadAllCustomers(); } }
 
-        // --- رفع الإكسيل (الأصناف والبونص) ---
+        // --- رفع الإكسيل ---
         window.processProductsExcel = async function() { const file = document.getElementById('productsFile').files[0], stat = document.getElementById('productsStatus'); if(!file) return; stat.innerText = "جاري الرفع..."; const reader = new FileReader(); reader.onload = async (e) => { const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}).Sheets[XLSX.read(e.target.result, {type: 'array'}).SheetNames[0]]); const q = await getDocs(collection(db, "Products")); let b = writeBatch(db); let c = 0; for(let d of q.docs) { b.delete(d.ref); c++; if(c===400){await b.commit(); b=writeBatch(db); c=0;} } if(c>0) await b.commit(); b = writeBatch(db); c = 0; for(let i=0; i<data.length; i++) { let it = data[i]; if(it.Item_Name && it.Price) { let bCode = String(it.Barcode || i).trim(); let gPrice = Number(it.Gomla_Price); if(isNaN(gPrice) || gPrice === 0) gPrice = Number(it.Price); b.set(doc(db, "Products", bCode), { Barcode: bCode, Item_Name: String(it.Item_Name), Price: Number(it.Price), Wholesale_Price: gPrice, Quantity: Number(it.Quantity)||0 }); c++; if(c===400 || i===data.length-1){await b.commit(); b=writeBatch(db); c=0;} } } stat.innerText = "تم الرفع بنجاح!"; stat.className = "mt-2 text-sm text-green-600"; loadAdminProducts(); }; reader.readAsArrayBuffer(file); }
         
+        // --- تحديث كود شيت البونص وحل مشكلة المطابقة ---
         window.processBonusExcel = async function() { 
-            const file = document.getElementById('bonusFile').files[0], stat = document.getElementById('bonusStatus'); 
+            const file = document.getElementById('bonusFile').files[0];
+            const stat = document.getElementById('bonusStatus'); 
             if (!file) return; 
-            stat.innerText = "جاري مطابقة الفواتير، يرجى الانتظار..."; 
             
+            // إظهار رسالة التحميل
+            stat.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-blue-500"></i> جاري قراءة الملف والمطابقة... يرجى الانتظار.'; 
+            await new Promise(r => setTimeout(r, 100)); // لعمل ريفريش للشاشة
+
             const reader = new FileReader(); 
             reader.onload = async function(e) { 
-                const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}).Sheets[XLSX.read(e.target.result, {type: 'array'}).SheetNames[0]]); 
-                let successCount = 0; let notFoundCount = 0;
-                
-                for(let row of data) { 
-                    let qrVal = row.QR_Code || row['QR_Code '] || row[' QR_Code'];
-                    if(!qrVal) continue; qrVal = String(qrVal).trim();
-                    const qrRef = doc(db, "ScannedQRs", qrVal); const qrSnap = await getDoc(qrRef); 
+                try {
+                    // استخدام {raw: false} عشان يقرا التواريخ والأرقام نصوص زي ما هي مكتوبة في الإكسيل بالظبط
+                    const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}).Sheets[XLSX.read(e.target.result, {type: 'array'}).SheetNames[0]], {raw: false}); 
+                    let successCount = 0; let notFoundCount = 0; let alreadyProcessedCount = 0;
                     
-                    if(qrSnap.exists() && qrSnap.data().status === 'pending') { 
-                        let originalInv = row.Original_Invoice || qrVal; 
-                        let excelDate = new Date(row.Date); if(isNaN(excelDate)) excelDate = new Date(); excelDate.setDate(excelDate.getDate() + 30); 
-                        let unlockDateStr = excelDate.toISOString().split('T')[0]; 
-                        await updateDoc(qrRef, { status: 'approved', bonusAmount: Number(row.Bonus)||0, originalInvoice: originalInv, unlockDate: unlockDateStr }); 
-                        const userSnap = await getDoc(doc(db, "Users", qrSnap.data().phone)); 
-                        if(userSnap.exists()) { let addedAttempts = userSnap.data().type === 'wholesale' ? 10 : 5; await updateDoc(doc(db, "Users", qrSnap.data().phone), { attempts: increment(addedAttempts) }); } 
-                        successCount++; 
-                    } else { notFoundCount++; }
-                } 
-                stat.innerHTML = `<span class="text-green-600">تم تأكيد ${successCount} فاتورة.</span><br><span class="text-red-500 text-xs">تم تجاهل ${notFoundCount} صف (غير مسجلين كقيد الانتظار).</span>`; 
+                    for(let row of data) { 
+                        let qrVal = row.QR_Code || row['QR_Code '] || row[' QR_Code'];
+                        if(!qrVal) continue; qrVal = String(qrVal).trim();
+                        
+                        const qrRef = doc(db, "ScannedQRs", qrVal); const qrSnap = await getDoc(qrRef); 
+                        
+                        if(qrSnap.exists()) {
+                            if(qrSnap.data().status === 'pending') { 
+                                let originalInv = row.Original_Invoice || qrVal; 
+                                let excelDate = new Date(row.Date); if(isNaN(excelDate)) excelDate = new Date(); excelDate.setDate(excelDate.getDate() + 30); 
+                                let unlockDateStr = excelDate.toISOString().split('T')[0]; 
+                                
+                                await updateDoc(qrRef, { status: 'approved', bonusAmount: Number(row.Bonus)||0, originalInvoice: originalInv, unlockDate: unlockDateStr }); 
+                                const userSnap = await getDoc(doc(db, "Users", qrSnap.data().phone)); 
+                                if(userSnap.exists()) { let addedAttempts = userSnap.data().type === 'wholesale' ? 10 : 5; await updateDoc(doc(db, "Users", qrSnap.data().phone), { attempts: increment(addedAttempts) }); } 
+                                successCount++; 
+                            } else {
+                                alreadyProcessedCount++;
+                            }
+                        } else { notFoundCount++; }
+                    } 
+                    stat.innerHTML = `<span class="text-green-600 font-bold"><i class="fa-solid fa-check-circle"></i> اكتملت العملية:</span><br><span class="text-sm">✅ تم تأكيد: ${successCount} فاتورة جديدة.</span><br><span class="text-sm text-amber-500">⚠️ تم تجاهل: ${alreadyProcessedCount} فاتورة (مؤكدة أو مرفوضة مسبقاً).</span><br><span class="text-sm text-red-500">❌ لم يعثر على: ${notFoundCount} فاتورة (لم يمسحها العملاء بعد).</span>`; 
+                } catch(error) {
+                    stat.innerHTML = '<span class="text-red-500 font-bold">حدث خطأ في قراءة الملف. تأكد من الصيغة.</span>';
+                }
             }; 
             reader.readAsArrayBuffer(file); 
         }
@@ -285,7 +259,7 @@
         loadAdminProducts();
     </script>
     <script>
-        // --- الكاميرا والفلاش (تعديل الظهور التلقائي للصنف) ---
+        // --- الكاميرا والفلاش (المعدلة للبحث المباشر) ---
         window.adminHtml5QrcodeScanner = null;
         window.flashState = false;
 
@@ -293,11 +267,7 @@
             const videoElement = document.querySelector("#adminReader video");
             if(videoElement && videoElement.srcObject) {
                 const track = videoElement.srcObject.getVideoTracks()[0];
-                if(track) {
-                    window.flashState = !window.flashState;
-                    track.applyConstraints({ advanced: [{ torch: window.flashState }] })
-                    .catch(e => alert("عفواً، جهازك لا يدعم تشغيل الفلاش داخلياً."));
-                }
+                if(track) { window.flashState = !window.flashState; track.applyConstraints({ advanced: [{ torch: window.flashState }] }).catch(e => alert("عفواً، جهازك لا يدعم تشغيل الفلاش.")); }
             } else { alert("قم بتشغيل الكاميرا أولاً."); }
         }
 
@@ -307,13 +277,14 @@
             if(!window.adminHtml5QrcodeScanner) { window.adminHtml5QrcodeScanner = new Html5Qrcode("adminReader", { formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ] }); } 
             window.adminHtml5QrcodeScanner.start({ facingMode: "environment" }, { fps: 5 }, 
                 (decodedText) => { 
+                    window.playBeep(); // صوت الصفارة
+                    const sInput = document.getElementById('adminSearchInput');
+                    sInput.value = decodedText.trim(); 
+                    sInput.dispatchEvent(new Event('input')); // إجبار المتصفح على البحث
+                    performSearch(); // استدعاء البحث فوراً
+                    
                     window.adminHtml5QrcodeScanner.stop().then(() => { 
                         document.getElementById('adminReaderContainer').classList.add('hidden'); 
-                        const sInput = document.getElementById('adminSearchInput');
-                        sInput.value = decodedText; 
-                        
-                        // التعديل: تأخير زمني 0.1 ثانية لحل مشكلة المتصفح وإجبار ظهور الصنف
-                        setTimeout(() => { performSearch(); }, 100);
                     }); 
                 }
             ).catch(err => { alert("برجاء إعطاء صلاحية الكاميرا للمتصفح."); document.getElementById('adminReaderContainer').classList.add('hidden'); }); 
