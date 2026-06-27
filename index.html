@@ -6,6 +6,7 @@
     <title>إدارة أبو إسلام لقطع غيار التوك توك</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style> 
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -14,6 +15,8 @@
         .chat-bubble-admin { background-color: #d1fae5; border-radius: 10px 10px 0 10px; padding: 8px; margin-bottom: 8px; text-align: right; width: 80%; margin-right: auto; }
         .chat-bubble-client { background-color: #f3f4f6; border-radius: 10px 10px 10px 0; padding: 8px; margin-bottom: 8px; text-align: right; width: 80%; }
         .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #adminReader { width: 100%; height: 120px; object-fit: cover; overflow: hidden; border-radius: 0.5rem; }
+        #adminReader video { object-fit: cover; height: 120px !important; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -37,8 +40,18 @@
         <div id="tabSearch" class="tab-content active">
             <div class="bg-white p-4 rounded-xl shadow border-t-4 border-emerald-500 mb-6">
                 <div class="flex gap-2 mb-2">
-                    <input type="text" id="adminSearchInput" onfocus="this.select()" oninput="debouncedSearch()" placeholder="اكتب الصنف أو الباركود (بالمسدس)..." class="w-full p-3 border-2 border-emerald-500 rounded-lg text-lg font-bold bg-gray-50 shadow-inner">
+                    <input type="text" id="adminSearchInput" onfocus="this.select()" oninput="debouncedSearch()" placeholder="اكتب الصنف (بأي ترتيب) أو الباركود..." class="w-full p-3 border-2 border-emerald-500 rounded-lg text-lg font-bold bg-gray-50 shadow-inner">
+                    <button onclick="startAdminScanner()" class="bg-emerald-500 text-white px-5 rounded-lg shadow font-bold hover:bg-emerald-600"><i class="fa-solid fa-barcode text-2xl"></i></button>
                 </div>
+                
+                <div id="adminReaderContainer" class="hidden mb-4 relative bg-black p-2 rounded-xl">
+                    <div id="adminReader" class="border-4 border-emerald-500"></div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="toggleAdminFlash()" class="flex-1 bg-yellow-500 text-gray-900 px-4 py-2 rounded font-bold"><i class="fa-solid fa-lightbulb"></i> فلاش</button>
+                        <button onclick="stopAdminScanner()" class="flex-1 bg-red-600 text-white px-4 py-2 rounded font-bold">إغلاق الإسكانر</button>
+                    </div>
+                </div>
+                
                 <div id="adminSearchResults" class="max-h-64 overflow-y-auto pr-2 space-y-2 mb-2"></div>
             </div>
             
@@ -133,6 +146,7 @@
 
         let audioCtx = null;
         window.playBeep = function() { try { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1); } catch(e) {} }
+        window.playScanBeep = function() { try { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = 'square'; osc.frequency.setValueAtTime(1200, audioCtx.currentTime); gain.gain.setValueAtTime(0.05, audioCtx.currentTime); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.05); } catch(e) {} }
         document.addEventListener('click', () => { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); }, { once: true });
 
         window.saveAdminInvoiceToOrders = async function() {
@@ -140,7 +154,7 @@
             try { await addDoc(collection(db, "Orders"), { customerName: "فاتورة طوارئ (محل)", phone: "مباشر", area: "المحل", date: new Date().toLocaleString("ar-EG"), timestamp: new Date().getTime(), items: window.adminCart, totalAmount: total, status: "تأكيد وإغلاق", orderType: "طوارئ" }); alert("تم حفظ الفاتورة في (الطلبات) بنجاح!"); window.adminCart = []; updateAdminCartUI(); } catch(e) { alert("حدث خطأ."); }
         }
 
-        // --- سجل الطلبات والشات ---
+        // --- سجل الطلبات ---
         window.allActiveOrders = []; 
         onSnapshot(collection(db, "Orders"), (snapshot) => {
             const container = document.getElementById('ordersCardsContainer'); container.innerHTML = '';
@@ -153,16 +167,21 @@
                     let orderTypeBadge = o.orderType === 'wholesale' ? '<span class="bg-purple-600 text-white text-[10px] px-1 rounded ml-1">جملة</span>' : (o.orderType === 'طوارئ' ? '<span class="bg-red-600 text-white text-[10px] px-1 rounded ml-1">طوارئ</span>' : '<span class="bg-blue-600 text-white text-[10px] px-1 rounded ml-1">قطاعي</span>');
                     let msgCount = o.chat ? o.chat.length : 0; let chatBtnClass = msgCount > 0 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700';
 
+                    // التعديل: إظهار التاريخ والوقت تحت اسم العميل
                     container.innerHTML += `
                         <div class="bg-white p-4 rounded-xl shadow border-t-4 border-amber-500 flex flex-col relative">
-                            <div class="flex justify-between items-start border-b pb-2 mb-2"><div><h3 class="font-black text-lg text-gray-800">${orderTypeBadge}${o.customerName}</h3><p class="text-xs text-gray-500 font-bold" dir="ltr">${o.phone}</p></div><span class="text-xs font-bold px-2 py-1 rounded ${statusBg}">${o.status}</span></div>
+                            <div class="flex justify-between items-start border-b pb-2 mb-2">
+                                <div>
+                                    <h3 class="font-black text-lg text-gray-800">${orderTypeBadge}${o.customerName}</h3>
+                                    <p class="text-xs text-gray-500 font-bold mt-1" dir="ltr"><i class="fa-solid fa-phone text-[10px]"></i> ${o.phone}</p>
+                                    <p class="text-xs text-blue-600 font-bold mt-1"><i class="fa-regular fa-clock text-[10px]"></i> ${o.date}</p>
+                                </div>
+                                <span class="text-xs font-bold px-2 py-1 rounded ${statusBg}">${o.status}</span>
+                            </div>
                             <div class="mb-3">${itemsList}</div>
                             <div class="mt-auto border-t pt-3 flex justify-between items-center mb-3"><span class="text-gray-600 font-bold text-sm">الإجمالي:</span><span class="font-black text-green-600 text-xl">${o.totalAmount} ج</span></div>
                             <button onclick="showOrderBarcodesForPC('${o.id}')" class="bg-purple-600 text-white text-xs font-bold py-2 rounded shadow mb-3 w-full"><i class="fa-solid fa-copy"></i> عرض الباركودات للكمبيوتر</button>
-                            <div class="grid grid-cols-2 gap-2 mt-2">
-                                <select onchange="updateOrderStatus('${o.id}', this.value)" class="bg-gray-50 border text-xs font-bold rounded p-2"><option disabled selected>تغيير الحالة</option><option value="في انتظار التأكيد">في انتظار التأكيد</option><option value="جاري التجهيز">جاري التجهيز</option><option value="تأكيد وإغلاق">تأكيد وإغلاق</option></select>
-                                <button onclick="openOrderChat('${o.id}')" class="${chatBtnClass} text-xs font-bold py-2 rounded shadow"><i class="fa-solid fa-comments"></i> شات الفاتورة (${msgCount})</button>
-                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-2"><select onchange="updateOrderStatus('${o.id}', this.value)" class="bg-gray-50 border text-xs font-bold rounded p-2"><option disabled selected>تغيير الحالة</option><option value="في انتظار التأكيد">في انتظار التأكيد</option><option value="جاري التجهيز">جاري التجهيز</option><option value="تأكيد وإغلاق">تأكيد وإغلاق</option></select><button onclick="openOrderChat('${o.id}')" class="${chatBtnClass} text-xs font-bold py-2 rounded shadow"><i class="fa-solid fa-comments"></i> شات הפاتورة (${msgCount})</button></div>
                             <button onclick="deleteOrder('${o.id}')" class="absolute top-4 left-4 text-red-400 hover:text-red-600 text-lg"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     `;
@@ -174,7 +193,6 @@
         window.updateOrderStatus = async function(id, newStatus) { 
             await updateDoc(doc(db, "Orders", id), { status: newStatus }); 
             const order = window.allActiveOrders.find(o => o.id === id);
-            // إرسال إشعار للعميل على الواتساب عند تغيير الحالة
             if(order && order.phone !== "مباشر") {
                 if(confirm("تم التحديث. هل تريد إرسال إشعار للعميل عبر الواتساب؟")) {
                     let text = `*أبو إسلام لقطع غيار التوك توك*\nأهلاً بك يا ${order.customerName}\nطلبك ذو الإجمالي (${order.totalAmount} ج) أصبح الآن: *${newStatus}*.\nشكراً لثقتك بنا.`;
@@ -182,7 +200,6 @@
                 }
             }
         }; 
-        
         window.deleteOrder = async function(id) { if(confirm("حذف الطلب نهائياً؟")) await deleteDoc(doc(db, "Orders", id)); }
         window.showOrderBarcodesForPC = function(orderId) { const order = window.allActiveOrders.find(o => o.id === orderId); if(!order || !order.items || order.items.length === 0) return; let barcodesText = order.items.map(i => Array(i.qty).fill(i.barcode || i.id).join('\n')).join('\n'); document.getElementById('pcBarcodesArea').value = barcodesText; document.getElementById('pcBarcodesModal').classList.remove('hidden'); }
 
@@ -190,20 +207,13 @@
         window.openOrderChat = function(orderId) { window.currentChatOrderId = orderId; document.getElementById('orderChatModal').classList.remove('hidden'); renderChatMessages(); }
         window.closeOrderChat = function() { document.getElementById('orderChatModal').classList.add('hidden'); window.currentChatOrderId = null; }
         function renderChatMessages() {
-            if(!window.currentChatOrderId) return;
-            const order = window.allActiveOrders.find(o => o.id === window.currentChatOrderId);
-            const area = document.getElementById('chatMessagesArea'); area.innerHTML = '';
+            if(!window.currentChatOrderId) return; const order = window.allActiveOrders.find(o => o.id === window.currentChatOrderId); const area = document.getElementById('chatMessagesArea'); area.innerHTML = '';
             if(!order || !order.chat || order.chat.length === 0) { area.innerHTML = '<p class="text-center text-gray-400 font-bold mt-10">لا توجد رسائل.</p>'; return; }
-            order.chat.forEach(msg => { let cssClass = msg.sender === 'admin' ? 'chat-bubble-admin' : 'chat-bubble-client'; let senderName = msg.sender === 'admin' ? 'المحل' : 'العميل'; area.innerHTML += `<div class="${cssClass}"><span class="text-[10px] text-gray-500 block mb-1">${senderName} - ${msg.time}</span><p class="text-sm font-bold text-gray-800">${msg.text}</p></div>`; });
-            area.scrollTop = area.scrollHeight; 
+            order.chat.forEach(msg => { let cssClass = msg.sender === 'admin' ? 'chat-bubble-admin' : 'chat-bubble-client'; let senderName = msg.sender === 'admin' ? 'المحل' : 'العميل'; area.innerHTML += `<div class="${cssClass}"><span class="text-[10px] text-gray-500 block mb-1">${senderName} - ${msg.time}</span><p class="text-sm font-bold text-gray-800">${msg.text}</p></div>`; }); area.scrollTop = area.scrollHeight; 
         }
-        window.sendOrderChatMessage = async function() {
-            const input = document.getElementById('chatInput'); const text = input.value.trim(); if(text === '' || !window.currentChatOrderId) return;
-            const msgObj = { sender: 'admin', text: text, time: new Date().toLocaleTimeString("ar-EG", {hour: '2-digit', minute:'2-digit'}) };
-            await updateDoc(doc(db, "Orders", window.currentChatOrderId), { chat: arrayUnion(msgObj) }); input.value = '';
-        }
+        window.sendOrderChatMessage = async function() { const input = document.getElementById('chatInput'); const text = input.value.trim(); if(text === '' || !window.currentChatOrderId) return; const msgObj = { sender: 'admin', text: text, time: new Date().toLocaleTimeString("ar-EG", {hour: '2-digit', minute:'2-digit'}) }; await updateDoc(doc(db, "Orders", window.currentChatOrderId), { chat: arrayUnion(msgObj) }); input.value = ''; }
 
-        // --- سجل الفواتير (الـ QRs) ---
+        // --- سجل الفواتير الـ QRs ---
         onSnapshot(collection(db, "ScannedQRs"), (snapshot) => {
             const tbody = document.getElementById('invoicesTableBody'); tbody.innerHTML = '';
             let qrs = []; snapshot.forEach(d => qrs.push({ id: d.id, ...d.data() })); qrs.sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -217,7 +227,7 @@
         });
         window.rejectInvoice = async function(id) { if(confirm("رفض الفاتورة؟ (سيتم تصنيفها كوهمية ولن تأخذ بونص)")) await updateDoc(doc(db, "ScannedQRs", id), { status: 'rejected' }); }
 
-        // --- العملاء والموافقات والخصم ---
+        // --- العملاء والموافقات ---
         onSnapshot(query(collection(db, "Users"), where("status", "==", "pending")), (snap) => { const div = document.getElementById('pendingUsersContainer'); div.innerHTML = ''; snap.forEach(d => { const u = d.data(); let typ = u.type==='wholesale'?'جملة':'قطاعي'; div.innerHTML += `<div class="flex justify-between items-center bg-gray-50 p-2 rounded border mb-2"><div class="text-sm"><p class="font-bold">${u.name} <span class="bg-yellow-200 text-xs px-1">${typ}</span></p></div><button onclick="approveUser('${u.phone}')" class="bg-purple-500 text-white px-3 py-1 rounded text-xs font-bold">تفعيل</button></div>`; }); });
         window.approveUser = async function(phone) { await updateDoc(doc(db, "Users", phone), { status: 'approved' }); }; 
         window.loadAllCustomers = async function() {
@@ -239,30 +249,21 @@
         window.deductBalance = async function() { 
             const amt = Number(document.getElementById('deductAmount').value), cBal = Number(document.getElementById('cBalance').innerText); 
             if(amt <= 0 || amt > cBal) return alert("المبلغ غير صحيح!"); 
-            
             if(confirm(`تأكيد خصم ${amt} جنيه؟`)) { 
                 const today = new Date().toISOString().split('T')[0];
                 const qrsSnap = await getDocs(query(collection(db, "ScannedQRs"), where("phone", "==", window.currentCheckPhone), where("status", "==", "approved"), where("unlockDate", "<=", today)));
                 let validInvoices = []; qrsSnap.forEach(d => { if(d.data().bonusAmount > 0) validInvoices.push(d.data()); });
                 validInvoices.sort((a,b) => new Date(a.date) - new Date(b.date));
-                
                 let remainingToDeduct = amt; let consumedInvoices = [];
-                for(let inv of validInvoices) {
-                    if(remainingToDeduct <= 0) break;
-                    consumedInvoices.push(inv.originalInvoice || inv.qrCode);
-                    remainingToDeduct -= inv.bonusAmount; 
-                }
-
+                for(let inv of validInvoices) { if(remainingToDeduct <= 0) break; consumedInvoices.push(inv.originalInvoice || inv.qrCode); remainingToDeduct -= inv.bonusAmount; }
                 await updateDoc(doc(db, "Users", window.currentCheckPhone), { deductedBonus: increment(amt), bonus: increment(-amt) }); 
-                
                 let invString = consumedInvoices.join(" ، ");
                 alert(`تم خصم ${amt} ج بنجاح!\n\nيُرجى إبلاغ العميل بالآتي:\n"تم سحب رصيد البونص من الفواتير أرقام:\n(${invString})\nويُمنع عمل مرتجع لهذه الفواتير."`);
-                
                 document.getElementById('balanceResult').classList.add('hidden'); document.getElementById('deductAmount').value = ''; loadAllCustomers(); 
             } 
         }
 
-        // --- رفع الإكسيل (الأصناف والبونص) ---
+        // --- الإكسيل ---
         window.processProductsExcel = async function() { const file = document.getElementById('productsFile').files[0], stat = document.getElementById('productsStatus'); if(!file) return; stat.innerText = "جاري الرفع..."; const reader = new FileReader(); reader.onload = async (e) => { const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}).Sheets[XLSX.read(e.target.result, {type: 'array'}).SheetNames[0]], {raw: false}); const q = await getDocs(collection(db, "Products")); let b = writeBatch(db); let c = 0; for(let d of q.docs) { b.delete(d.ref); c++; if(c===400){await b.commit(); b=writeBatch(db); c=0;} } if(c>0) await b.commit(); b = writeBatch(db); c = 0; for(let i=0; i<data.length; i++) { let it = data[i]; if(it.Item_Name && it.Price) { let bCode = String(it.Barcode || i).trim(); let gPrice = Number(it.Gomla_Price); if(isNaN(gPrice) || gPrice === 0) gPrice = Number(it.Price); b.set(doc(db, "Products", bCode), { Barcode: bCode, Item_Name: String(it.Item_Name), Price: Number(it.Price), Wholesale_Price: gPrice, Quantity: Number(it.Quantity)||0 }); c++; if(c===400 || i===data.length-1){await b.commit(); b=writeBatch(db); c=0;} } } stat.innerText = "تم الرفع بنجاح!"; stat.className = "mt-2 text-sm text-green-600"; loadAdminProducts(); }; reader.readAsArrayBuffer(file); }
         
         window.processBonusExcel = async function() { 
@@ -284,8 +285,10 @@
                         
                         if(qrSnap.exists()) {
                             let originalInv = row.Original_Invoice || qrVal; 
-                            let excelDate = new Date(row.Date); if(isNaN(excelDate)) excelDate = new Date(); excelDate.setDate(excelDate.getDate() + 30); 
-                            let unlockDateStr = excelDate.toISOString().split('T')[0]; let newBonusAmount = Number(row.Bonus) || 0;
+                            let excelDate = new Date(row.Date); if(isNaN(excelDate)) excelDate = new Date(); 
+                            excelDate.setDate(excelDate.getDate() + 20); // التعديل: البونص ينزل بعد 20 يوم
+                            let unlockDateStr = excelDate.toISOString().split('T')[0]; 
+                            let newBonusAmount = Number(row.Bonus) || 0;
 
                             if(qrSnap.data().status === 'pending') { 
                                 await updateDoc(qrRef, { status: 'approved', bonusAmount: newBonusAmount, originalInvoice: originalInv, unlockDate: unlockDateStr }); 
@@ -299,7 +302,7 @@
                             }
                         } else { notFoundCount++; }
                     } 
-                    stat.innerHTML = `<span class="text-green-600 font-bold"><i class="fa-solid fa-check-circle"></i> اكتملت المعالجة:</span><br><span class="text-sm">✅ تم تأكيد: ${newCount} فاتورة جديدة.</span><br><span class="text-sm text-blue-600">🔄 تم تعديل بونص: ${updatedCount} فاتورة (مرتجعات).</span><br><span class="text-sm text-amber-500">⚠️ تم تجاهل: ${skippedCount} فاتورة متطابقة.</span><br><span class="text-sm text-red-500">❌ لم يعثر على: ${notFoundCount} فاتورة (لم يمسحها العملاء).</span>`; 
+                    stat.innerHTML = `<span class="text-green-600 font-bold"><i class="fa-solid fa-check-circle"></i> اكتملت المعالجة:</span><br><span class="text-sm">✅ تم تأكيد: ${newCount} فاتورة جديدة.</span><br><span class="text-sm text-blue-600">🔄 تم تعديل بونص: ${updatedCount} فاتورة.</span><br><span class="text-sm text-amber-500">⚠️ تم تجاهل: ${skippedCount} متطابقة.</span><br><span class="text-sm text-red-500">❌ لم يعثر على: ${notFoundCount} فاتورة.</span>`; 
                 } catch(error) { stat.innerHTML = '<span class="text-red-500 font-bold">حدث خطأ في قراءة الملف.</span>'; }
             }; reader.readAsArrayBuffer(file); 
         }
@@ -307,17 +310,51 @@
         window.adminProductsList = [];
         async function loadAdminProducts() { const cached = localStorage.getItem('abuAdminProducts'); if (cached) { window.adminProductsList = JSON.parse(cached); } try { const q = await getDocs(collection(db, "Products")); let fresh = []; q.forEach((d) => { let dt = d.data(); dt.Barcode = dt.Barcode || d.id; fresh.push(dt); }); if(fresh.length > 0) { fresh.sort((a,b) => a.Item_Name.localeCompare(b.Item_Name, 'ar')); window.adminProductsList = fresh; localStorage.setItem('abuAdminProducts', JSON.stringify(fresh)); } } catch (e) {} }
         let searchTimeout; window.debouncedSearch = function() { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { performSearch(); }, 300); }
+        
+        // التعديل: البحث المتعدد الكلمات في الإدارة
         function performSearch() {
             const q = document.getElementById('adminSearchInput').value.trim().toLowerCase(), res = document.getElementById('adminSearchResults');
             if(q === '') { res.innerHTML = ''; return; }
-            const filtered = window.adminProductsList.filter(p => (p.Item_Name && p.Item_Name.toLowerCase().includes(q)) || (p.Barcode && p.Barcode.toLowerCase().includes(q))).slice(0, 50); 
+            
+            const queryWords = q.split(' ').filter(w => w !== '');
+            const filtered = window.adminProductsList.filter(p => {
+                const searchStr = ((p.Item_Name || '') + ' ' + (p.Barcode || '')).toLowerCase();
+                return queryWords.every(word => searchStr.includes(word));
+            }).slice(0, 50);
+
             res.innerHTML = ''; if(filtered.length === 0) { res.innerHTML = '<p class="text-center text-red-500 font-bold text-sm mt-2">الصنف غير موجود.</p>'; return; }
             filtered.forEach(p => { res.innerHTML += `<div class="bg-gray-50 p-2 rounded border border-gray-300 flex justify-between items-center mb-2"><div class="text-sm w-1/2"><span class="font-bold text-gray-800 block text-base">${p.Item_Name}</span><span class="text-gray-500 text-xs font-bold"><i class="fa-solid fa-barcode"></i> ${p.Barcode}</span></div><div class="text-left w-1/4"><span class="text-emerald-600 font-black text-lg block">${p.Price} ج</span></div><button onclick="addToAdminCart('${p.Barcode}')" class="bg-amber-500 text-gray-900 px-3 py-2 rounded font-bold shadow hover:bg-amber-600"><i class="fa-solid fa-plus"></i></button></div>`; });
         }
         loadAdminProducts();
     </script>
     <script>
-        // إزالة الكاميرا من نسخة الإدارة والاعتماد على البحث السريع والسكانر الفيزيائي
+        // --- الكاميرا والكاشير ---
+        window.adminHtml5QrcodeScanner = null;
+        window.flashState = false;
+
+        window.toggleAdminFlash = function() {
+            const videoElement = document.querySelector("#adminReader video");
+            if(videoElement && videoElement.srcObject) {
+                const track = videoElement.srcObject.getVideoTracks()[0];
+                if(track) { window.flashState = !window.flashState; track.applyConstraints({ advanced: [{ torch: window.flashState }] }).catch(e => alert("جهازك لا يدعم تشغيل الفلاش.")); }
+            } else { alert("قم بتشغيل الكاميرا أولاً."); }
+        }
+
+        window.startAdminScanner = function() { 
+            document.getElementById('adminReaderContainer').classList.remove('hidden'); 
+            window.flashState = false; 
+            if(!window.adminHtml5QrcodeScanner) { window.adminHtml5QrcodeScanner = new Html5Qrcode("adminReader", { formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ] }); } 
+            window.adminHtml5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10 }, 
+                (decodedText) => { 
+                    window.playScanBeep(); 
+                    const sInput = document.getElementById('adminSearchInput');
+                    sInput.value = decodedText.trim(); 
+                    performSearch(); 
+                }
+            ).catch(err => { alert("برجاء إعطاء صلاحية الكاميرا للمتصفح."); document.getElementById('adminReaderContainer').classList.add('hidden'); }); 
+        }
+        window.stopAdminScanner = function() { if(window.adminHtml5QrcodeScanner) { window.adminHtml5QrcodeScanner.stop(); } document.getElementById('adminReaderContainer').classList.add('hidden'); }
+
         window.adminCart = JSON.parse(localStorage.getItem('abuAdminCart')) || [];
         window.addToAdminCart = function(barcode) { const product = window.adminProductsList.find(p => p.Barcode === barcode); if(!product) return; const existing = window.adminCart.find(i => i.barcode === barcode); if(existing) existing.qty += 1; else window.adminCart.push({ barcode: product.Barcode, name: product.Item_Name, price: product.Price, qty: 1 }); updateAdminCartUI(); window.playBeep(); }
         window.updateAdminCartUI = function() { localStorage.setItem('abuAdminCart', JSON.stringify(window.adminCart)); const container = document.getElementById('adminCartContainer'), totalDisplay = document.getElementById('adminCartTotal'); container.innerHTML = ''; let total = 0; if(window.adminCart.length === 0) { container.innerHTML = '<p class="text-center text-gray-400 font-bold mt-4">الفاتورة فارغة.</p>'; totalDisplay.innerText = '0 ج'; return; } window.adminCart.forEach((item, index) => { total += item.price * item.qty; container.innerHTML += `<div class="flex justify-between items-center border-b pb-2 mb-2 bg-gray-50 p-2 rounded"><div class="w-1/2"><p class="font-bold text-sm text-gray-800">${item.name}</p></div><div class="flex items-center gap-2 bg-gray-200 rounded p-1"><button onclick="changeAdminCartQty(${index}, 1)" class="px-2 font-bold bg-white rounded">+</button><span class="font-bold text-sm w-4 text-center">${item.qty}</span><button onclick="changeAdminCartQty(${index}, -1)" class="px-2 font-bold bg-white rounded">-</button></div><span class="font-black text-green-600 text-sm w-16 text-left">${item.price * item.qty} ج</span></div>`; }); totalDisplay.innerText = `${total} ج`; }
@@ -327,7 +364,7 @@
         window.showBarcodesForPCOffline = function() { if(window.adminCart.length === 0) return alert("الفاتورة فارغة!"); let barcodesText = window.adminCart.map(i => Array(i.qty).fill(i.barcode).join('\n')).join('\n'); document.getElementById('pcBarcodesArea').value = barcodesText; document.getElementById('pcBarcodesModal').classList.remove('hidden'); }
         window.closePcBarcodesModal = function() { document.getElementById('pcBarcodesModal').classList.add('hidden'); }
         window.copyFromTextarea = function() { const copyText = document.getElementById("pcBarcodesArea"); copyText.select(); document.execCommand("copy"); alert("تم النسخ!"); }
-        window.shareAdminInvoice = function() { if(window.adminCart.length === 0) return alert("الفاتورة فارغة!"); let text = "*فاتورة مشتريات (أبو إسلام)*\n\n"; let total = 0; window.adminCart.forEach(i => { text += `- ${i.name} (${i.qty}) = ${i.price * i.qty} ج\n`; total += i.price * i.qty; }); text += `\n*الإجمالي: ${total} ج*`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`); }
+        window.shareAdminInvoice = function() { if(window.adminCart.length === 0) return alert("الفاتورة فارغة!"); let text = "*فاتورة طوارئ (أبو إسلام)*\n\n"; let total = 0; window.adminCart.forEach(i => { text += `- ${i.name} (${i.qty}) = ${i.price * i.qty} ج\n`; total += i.price * i.qty; }); text += `\n*الإجمالي: ${total} ج*`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`); }
 
         window.switchAdminTab = function(tabId) { 
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); 
